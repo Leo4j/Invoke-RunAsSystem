@@ -27,27 +27,63 @@ $pipeClient.Connect()
 $sr = New-Object System.IO.StreamReader($pipeClient)
 $sw = New-Object System.IO.StreamWriter($pipeClient)
 
-$serverOutput = ""
+Write-Output ""
+Write-Output "Running as 'nt authority\system' - System Mandatory Level"
+Write-Output ""
+
 while ($true) {
-    $userCommand = Read-Host "Enter Command"
-    $sw.WriteLine($userCommand)
-    $sw.Flush()
+				
+	# Fetch the actual remote prompt
+	$sw.WriteLine("prompt | Out-String")
+	$sw.Flush()
+	
+	$remotePath = ""
+	while ($true) {
+		$line = $sr.ReadLine()
 
-    if ($userCommand -eq "exit") {
-        break
-    }
+		if ($line -eq "###END###") {
+			# Remove any extraneous whitespace, newlines etc.
+			$remotePath = $remotePath.Trim()
+			break
+		} else {
+			$remotePath += "$line`n"
+		}
+	}
+	
+	$computerNameOnly = $ComputerName -split '\.' | Select-Object -First 1
+	$promptString = "$remotePath "
+	Write-Host -NoNewline $promptString
+	$userCommand = Read-Host
+	
+	if ($userCommand -eq "exit") {
+		Write-Output ""
+		break
+	}
+	
+	elseif($userCommand -ne ""){
+		$fullCommand = "$userCommand 2>&1 | Out-String"
+		$sw.WriteLine($fullCommand)
+		$sw.Flush()
+	}
+	
+	else{
+		continue
+	}
+	
+	Write-Output ""
 
-    $serverOutput = ""
-    while ($true) {
-        $line = $sr.ReadLine()
+	$serverOutput = ""
+	while ($true) {
+		$line = $sr.ReadLine()
 
-        if ($line -eq "###END###") {  # Check for the delimiter
-            Write-Output $serverOutput.Trim()  # Print the entire result at once
-            break
-        } else {
-            $serverOutput += "$line`n"  # Accumulate the output until the delimiter is found
-        }
-    }
+		if ($line -eq "###END###") {
+			Write-Output $serverOutput.Trim()
+			Write-Output ""
+			break
+		} else {
+			$serverOutput += "$line`n"
+		}
+	}
 }
 
 $sr.Close()
