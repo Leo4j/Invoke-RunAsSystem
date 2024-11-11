@@ -15,7 +15,8 @@ function Invoke-RunAsSystem {
 	#>
 
 	param (
-		[string]$Timeout = "30000"
+		[string]$Timeout = "30000",
+		[string]$Command
 	)
 	
 	$ErrorActionPreference = "SilentlyContinue"
@@ -116,58 +117,79 @@ while (`$true) {
 
 	$serverOutput = ""
 	
-	while ($true) {
-		
-		# Fetch the actual remote prompt
-		$sw.WriteLine("prompt | Out-String")
+	if ($Command) {
+		$Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
+		$Command = "[System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String(""$Command"")) | IEX"
+		$fullCommand = "$Command 2>&1 | Out-String"
+		$sw.WriteLine($fullCommand)
 		$sw.Flush()
-		
-		$remotePath = ""
 		while ($true) {
 			$line = $sr.ReadLine()
-
-			if ($line -eq "###END###") {
-				# Remove any extraneous whitespace, newlines etc.
-				$remotePath = $remotePath.Trim()
-				break
-			} else {
-				$remotePath += "$line`n"
-			}
-		}
-		
-		$promptString = "$remotePath "
-		Write-Host -NoNewline $promptString
-		$userCommand = Read-Host
-		
-		if ($userCommand -eq "exit") {
-			Write-Output ""
-				$sw.WriteLine("exit")
-			$sw.Flush()
-			break
-		}
-		
-		elseif($userCommand -ne ""){
-			$fullCommand = "$userCommand 2>&1 | Out-String"
-			$sw.WriteLine($fullCommand)
-			$sw.Flush()
-		}
-		
-		else{
-			continue
-		}
-		
-		#Write-Output ""
-
-		$serverOutput = ""
-		while ($true) {
-			$line = $sr.ReadLine()
-
 			if ($line -eq "###END###") {
 				Write-Output $serverOutput.Trim()
 				Write-Output ""
 				break
 			} else {
 				$serverOutput += "$line`n"
+			}
+		}
+	}
+	
+	else{
+	
+		while ($true) {
+			
+			# Fetch the actual remote prompt
+			$sw.WriteLine("prompt | Out-String")
+			$sw.Flush()
+			
+			$remotePath = ""
+			while ($true) {
+				$line = $sr.ReadLine()
+
+				if ($line -eq "###END###") {
+					# Remove any extraneous whitespace, newlines etc.
+					$remotePath = $remotePath.Trim()
+					break
+				} else {
+					$remotePath += "$line`n"
+				}
+			}
+			
+			$promptString = "$remotePath "
+			Write-Host -NoNewline $promptString
+			$userCommand = Read-Host
+			
+			if ($userCommand -eq "exit") {
+				Write-Output ""
+					$sw.WriteLine("exit")
+				$sw.Flush()
+				break
+			}
+			
+			elseif($userCommand -ne ""){
+				$fullCommand = "$userCommand 2>&1 | Out-String"
+				$sw.WriteLine($fullCommand)
+				$sw.Flush()
+			}
+			
+			else{
+				continue
+			}
+			
+			#Write-Output ""
+
+			$serverOutput = ""
+			while ($true) {
+				$line = $sr.ReadLine()
+
+				if ($line -eq "###END###") {
+					Write-Output $serverOutput.Trim()
+					Write-Output ""
+					break
+				} else {
+					$serverOutput += "$line`n"
+				}
 			}
 		}
 	}
